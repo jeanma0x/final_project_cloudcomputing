@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  # --- Servicio de Base de Datos MySQL ---
+  db:
+    build:
+      context: ./database            # Usa nuestro Dockerfile (puedes usar imagen oficial directo también)
+    container_name: cc_mysql
+    environment:                     # Variables que MySQL usa al boot
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"                  # Exponer puerto para tools externas (phpMyAdmin, etc.)
+    volumes:
+      - db_data:/var/lib/mysql       # Volumen persistente para datos
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro  # Script de init
+    healthcheck:                     # Esperar a que MySQL esté listo antes de levantar la API
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # --- Servicio de API (FastAPI) ---
+  api:
+    build:
+      context: ./backend             # Dockerfile de Python/FastAPI
+    container_name: cc_api
+    depends_on:
+      db:
+        condition: service_healthy   # Arranca cuando la DB esté saludable
+    environment:                     # Variables que la API usará para conectarse a MySQL
+      APP_ENV: ${APP_ENV}
+      APP_PORT: ${APP_PORT}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    ports:
+      - "8000:8000"                  # Exponer API al host
+    restart: unless-stopped          # Reinicia si se cae
+
+  # --- Servicio Frontend (placeholder con NGINX) ---
+  web:
+    build:
+      context: ./frontend            # Dockerfile NGINX que sirve index.html
+    container_name: cc_frontend
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "8080:80"                    # Verás el “frontend” en http://localhost:8080
+    restart: unless-stopped
+
+volumes:
+  db_data:                           # Volumen nombrado para la DB
