@@ -1,16 +1,477 @@
 <!doctype html>
-<html>
+<html lang="es" data-bs-theme="dark">
   <head>
     <meta charset="utf-8" />
-    <title>Secure Users - Frontend</title>
+    <title>Secure Users – Admin Panel</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <!-- Bootstrap 5 -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #1f2933, #050816);
+        color: #e5e7eb;
+      }
+      .brand-title {
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        color: #9ca3af;
+      }
+      .glass-card {
+        background: rgba(17, 24, 39, 0.9);
+        border-radius: 1rem;
+        border: 1px solid rgba(55, 65, 81, 0.8);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7);
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        border: none;
+      }
+      .btn-primary:hover {
+        background: linear-gradient(135deg, #1d4ed8, #4338ca);
+      }
+      .token-badge {
+        font-size: 0.7rem;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      pre {
+        max-height: 280px;
+        overflow: auto;
+        font-size: 0.8rem;
+        background: #020617;
+        border-radius: 0.75rem;
+        padding: 1rem;
+      }
+      .form-control,
+      .form-control:focus {
+        background-color: #020617;
+        border-color: #4b5563;
+        color: #e5e7eb;
+      }
+      .form-control::placeholder {
+        color: #6b7280;
+      }
+      .badge-status {
+        font-size: 0.7rem;
+      }
+    </style>
   </head>
+
   <body>
-    <h1>Frontend listo ✅</h1>
-    <p>La API debería estar en <code>http://localhost:8000</code></p>
-    <p>
-      Health:
-      <a href="http://localhost:8000/health" target="_blank" rel="noreferrer">/health</a>
-    </p>
+    <div class="container py-5">
+      <!-- Header -->
+      <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+          <div>
+            <div class="brand-title">Cloud Secure Users</div>
+            <h2 class="fw-semibold mb-1">Admin Panel</h2>
+            <p class="text-secondary mb-0">
+              Gestión básica de usuarios protegida con JWT y base de datos MySQL.
+            </p>
+          </div>
+
+          <div class="text-end">
+            <span class="badge rounded-pill bg-success-subtle text-success badge-status">
+              API: <span id="api-status">Desconocido</span>
+            </span>
+            <div class="mt-2">
+              <span
+                id="token-status"
+                class="badge rounded-pill bg-secondary-subtle text-secondary token-badge"
+              >
+                Sin sesión activa
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <div class="row g-4">
+        <!-- Col izquierda: Login + Registro -->
+        <div class="col-lg-4">
+          <!-- Login -->
+          <div class="glass-card p-4 mb-4">
+            <h5 class="mb-3">Iniciar sesión</h5>
+            <div class="mb-3">
+              <label for="login_email" class="form-label">Email</label>
+              <input
+                id="login_email"
+                type="email"
+                class="form-control"
+                placeholder="demo@example.com"
+              />
+            </div>
+            <div class="mb-3">
+              <label for="login_password" class="form-label">Contraseña</label>
+              <input
+                id="login_password"
+                type="password"
+                class="form-control"
+                placeholder="••••••••"
+              />
+            </div>
+            <button class="btn btn-primary w-100" onclick="login()">Iniciar sesión</button>
+            <div class="small text-secondary mt-2" id="login_msg"></div>
+          </div>
+
+          <!-- Registro -->
+          <div class="glass-card p-4">
+            <h5 class="mb-3">Registrar usuario</h5>
+            <div class="mb-3">
+              <label for="reg_email" class="form-label">Email</label>
+              <input
+                id="reg_email"
+                type="email"
+                class="form-control"
+                placeholder="nuevo.usuario@example.com"
+              />
+            </div>
+            <div class="mb-3">
+              <label for="reg_password" class="form-label">Contraseña</label>
+              <input
+                id="reg_password"
+                type="password"
+                class="form-control"
+                placeholder="Mínimo 8 caracteres"
+              />
+            </div>
+            <div class="mb-3">
+              <label for="reg_name" class="form-label">Nombre completo</label>
+              <input
+                id="reg_name"
+                type="text"
+                class="form-control"
+                placeholder="Nombre Apellido"
+              />
+            </div>
+            <button class="btn btn-outline-light w-100" onclick="registerUser()">
+              Registrar
+            </button>
+            <div class="small text-secondary mt-2" id="reg_msg"></div>
+          </div>
+        </div>
+
+        <!-- Col derecha: Lista de usuarios -->
+        <div class="col-lg-8">
+          <div class="glass-card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h5 class="mb-1">Usuarios registrados</h5>
+                <p class="text-secondary mb-0 small">
+                  Para consultar necesitas estar autenticado. Se usa el token JWT en la cabecera.
+                </p>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-light" onclick="fetchUsers()">
+                  Actualizar lista
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="logout()">
+                  Cerrar sesión
+                </button>
+              </div>
+            </div>
+
+            <pre id="users">Presiona "Actualizar lista" para cargar usuarios.</pre>
+          </div>
+
+          <div class="glass-card p-4 h-100 mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h5 class="mb-1">Backups y notificaciones</h5>
+                <p class="text-secondary mb-0 small">
+                  Ejecuta un backup manual o revisa el historial creado por el cron.
+                </p>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-light" onclick="loadBackupLogs()">
+                  Refrescar
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="triggerBackup()">
+                  Backup manual
+                </button>
+              </div>
+            </div>
+
+            <pre id="backup_logs">Inicia sesión para consultar el historial de backups.</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+      <div
+        id="liveToast"
+        class="toast text-bg-dark border-0"
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+      >
+        <div class="toast-header bg-dark text-white border-0">
+          <strong class="me-auto" id="toast-title">Notificación</strong>
+          <small>Ahora</small>
+          <button
+            type="button"
+            class="btn-close btn-close-white ms-2 mb-1"
+            data-bs-dismiss="toast"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="toast-body" id="toast-body"></div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      // Ajusta esto si más adelante expones la API detrás de nginx como /api
+      const API = window.location.origin + "/api";
+
+      const toastEl = document.getElementById("liveToast");
+      const toast = new bootstrap.Toast(toastEl);
+      let backupLogsSignature = "";
+
+      function showToast(title, message) {
+        document.getElementById("toast-title").textContent = title;
+        document.getElementById("toast-body").textContent = message;
+        toast.show();
+      }
+
+      function saveToken(token) {
+        localStorage.setItem("jwt", token);
+        updateTokenStatus();
+      }
+
+      function getToken() {
+        return localStorage.getItem("jwt");
+      }
+
+      function logout() {
+        localStorage.removeItem("jwt");
+        updateTokenStatus();
+        document.getElementById("users").textContent =
+          "Sesión cerrada. Vuelve a iniciar sesión para ver usuarios.";
+        showToast("Sesión", "Has cerrado sesión correctamente.");
+      }
+
+      function updateTokenStatus() {
+        const token = getToken();
+        const el = document.getElementById("token-status");
+        if (token) {
+          el.textContent = "Sesión activa (JWT almacenado)";
+          el.className =
+            "badge rounded-pill bg-primary-subtle text-primary token-badge";
+          loadBackupLogs(false);
+        } else {
+          el.textContent = "Sin sesión activa";
+          el.className =
+            "badge rounded-pill bg-secondary-subtle text-secondary token-badge";
+          document.getElementById("backup_logs").textContent =
+            "Inicia sesión para consultar el historial de backups.";
+          backupLogsSignature = "";
+        }
+      }
+
+      async function checkHealth() {
+        const statusEl = document.getElementById("api-status");
+        try {
+          const res = await fetch(`${API}/health`);
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          if (data.status === "ok") {
+            statusEl.textContent = "OK";
+            statusEl.className = "text-success fw-semibold";
+          } else {
+            statusEl.textContent = "Degradado";
+            statusEl.className = "text-warning fw-semibold";
+          }
+        } catch {
+          statusEl.textContent = "Offline";
+          statusEl.className = "text-danger fw-semibold";
+        }
+      }
+
+      async function login() {
+        const email = document.getElementById("login_email").value.trim();
+        const password = document.getElementById("login_password").value;
+
+        const msg = document.getElementById("login_msg");
+        msg.textContent = "";
+
+        if (!email || !password) {
+          msg.textContent = "Completa email y contraseña.";
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API}/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await res.json();
+
+          if (res.ok && data.access_token) {
+            saveToken(data.access_token);
+            msg.textContent = "Login exitoso. Token guardado.";
+            showToast("Login", "Inicio de sesión correcto.");
+          } else {
+            msg.textContent = data.detail || "Error al iniciar sesión.";
+            showToast("Login", "Error al iniciar sesión.");
+          }
+        } catch (e) {
+          msg.textContent = "Error de red al intentar iniciar sesión.";
+          showToast("Error", "No se pudo conectar con la API.");
+        }
+      }
+
+      async function registerUser() {
+        const email = document.getElementById("reg_email").value.trim();
+        const password = document.getElementById("reg_password").value;
+        const full_name = document.getElementById("reg_name").value.trim();
+
+        const msg = document.getElementById("reg_msg");
+        msg.textContent = "";
+
+        if (!email || !password) {
+          msg.textContent = "Email y contraseña son obligatorios.";
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API}/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, full_name }),
+          });
+
+          const data = await res.json();
+
+          if (res.ok) {
+            msg.textContent = "Usuario registrado correctamente.";
+            showToast("Registro", "Usuario creado con éxito.");
+          } else {
+            msg.textContent = data.detail || "Error al registrar usuario.";
+            showToast("Registro", "No se pudo registrar el usuario.");
+          }
+        } catch (e) {
+          msg.textContent = "Error de red al registrar usuario.";
+          showToast("Error", "No se pudo conectar con la API.");
+        }
+      }
+
+      async function fetchUsers() {
+        const token = getToken();
+        if (!token) {
+          showToast("Usuarios", "Debes iniciar sesión primero.");
+          alert("Debes iniciar sesión primero.");
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API}/users`, {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          });
+
+          const data = await res.json();
+          const usersEl = document.getElementById("users");
+
+          if (res.ok) {
+            usersEl.textContent = JSON.stringify(data, null, 2);
+          showToast("Usuarios", "Lista de usuarios actualizada.");
+          } else {
+            usersEl.textContent = JSON.stringify(data, null, 2);
+            showToast("Usuarios", "Error al obtener usuarios.");
+          }
+        } catch (e) {
+          showToast("Error", "No se pudo conectar con la API.");
+        }
+      }
+
+      async function triggerBackup() {
+        const token = getToken();
+        if (!token) {
+          showToast("Backup", "Debes iniciar sesión primero.");
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API}/backup`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token },
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast(
+              "Backup",
+              `Archivo generado en ${data.file} (${data.size_bytes} bytes)`
+            );
+            loadBackupLogs();
+          } else {
+            showToast("Backup", data.detail || "No se pudo ejecutar el backup.");
+          }
+        } catch (error) {
+          showToast("Backup", "No se pudo contactar a la API.");
+        }
+      }
+
+      async function loadBackupLogs(showToastOnNewData = true) {
+        const token = getToken();
+        const container = document.getElementById("backup_logs");
+        if (!token) {
+          container.textContent = "Inicia sesión para consultar el historial de backups.";
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API}/backup/logs`, {
+            headers: { Authorization: "Bearer " + token },
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            container.textContent = JSON.stringify(data, null, 2);
+            return;
+          }
+
+          const formatted = data
+            .map((log) => {
+              const file = log.payload?.file || "(sin ruta)";
+              const message = log.payload?.message || "";
+              return `[${new Date(log.created_at).toLocaleString()}] ${log.action} -> ${file} ${message}`;
+            })
+            .join("\n");
+          container.textContent = formatted || "Sin registros de backup.";
+
+          const signature = JSON.stringify(data);
+          if (signature !== backupLogsSignature) {
+            backupLogsSignature = signature;
+            if (showToastOnNewData) {
+              showToast("Backups", "Historial actualizado.");
+            }
+          }
+        } catch (error) {
+          container.textContent = "No se pudo cargar el historial de backups.";
+        }
+      }
+
+      // Init
+      updateTokenStatus();
+      checkHealth();
+      setInterval(() => loadBackupLogs(false), 60000);
+    </script>
   </body>
 </html>

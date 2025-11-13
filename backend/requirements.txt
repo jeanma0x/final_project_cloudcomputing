@@ -1,15 +1,10 @@
-# FastAPI + servidor uvicorn
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-
-# ORM y driver MySQL
 SQLAlchemy==2.0.36
 pymysql==1.1.1
+python-dotenv==1.0.1
+pydantic==2.8.2
 
-# Utilidades
-python-dotenv==1.0.1  # cargar .env si algún día corres local fuera de Docker
-pydantic==2.8.2       # validación de datos (request/response)
-
-passlib[bcrypt]==1.7.4      # hashing y verificación de contraseñas
-python-jose[cryptography]==3.3.0  # firmar/verificar JWT (HS256)
-email-validator==2.2.0       # validación de e-mails (Pydantic)
+python-jose[cryptography]==3.3.0
+email-validator==2.2.0
+bcrypt==4.1.2

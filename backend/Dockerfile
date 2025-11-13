@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Paquetes del sistema que a veces ayudan a compilar dependencias
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl build-essential default-libmysqlclient-dev && \
+    curl build-essential default-libmysqlclient-dev mariadb-client && \
     rm -rf /var/lib/apt/lists/*
 
 # Instalar dependencias de Python

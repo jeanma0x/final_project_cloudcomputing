@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db
 from .routes.users import router as users_router
+from .routes.backup import router as backup_router
 
 app = FastAPI(title="Secure Users API", version="0.2.0")
 
@@ -33,3 +34,4 @@ def root():
 
 # Montar endpoints de usuarios (register/login/users)
 app.include_router(users_router)
+app.include_router(backup_router)

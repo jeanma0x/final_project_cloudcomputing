@@ -7,6 +7,7 @@ from ..models import User
 from ..schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut
 from ..auth import hash_password, verify_password, create_access_token, get_current_user
 from ..config import settings
+from ..audit import record_audit_log
 
 router = APIRouter(prefix="", tags=["users"])
 
@@ -31,6 +32,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Email already registered")
+    record_audit_log(db, action="REGISTER", actor_email=new_user.email, payload={"user_id": new_user.id})
     return new_user
 
 @router.post("/login", response_model=TokenResponse)
@@ -46,6 +48,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     token = create_access_token(subject=user.email)
+    record_audit_log(db, action="LOGIN", actor_email=user.email)
     return TokenResponse(access_token=token, expires_in_minutes=int(settings.APP_PORT) * 0 + 60)  # 60 por defecto
 
 @router.get("/users", response_model=list[UserOut])

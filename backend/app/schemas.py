@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, EmailStr, Field
 
 # ------- Request models -------
 class RegisterRequest(BaseModel):
@@ -26,3 +28,22 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True  # permite convertir desde ORM (SQLAlchemy)
+
+
+class BackupResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    file: str
+    size_bytes: int
+    created_at: datetime
+    triggered_by: EmailStr
+
+
+class AuditLogOut(BaseModel):
+    id: int
+    action: str
+    actor_email: str | None = None
+    payload: dict[str, Any] | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

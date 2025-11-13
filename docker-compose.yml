@@ -4,19 +4,26 @@ services:
   # --- Servicio de Base de Datos MySQL ---
   db:
     build:
-      context: ./database            # Usa nuestro Dockerfile (puedes usar imagen oficial directo también)
+      context: ./database
     container_name: cc_mysql
-    environment:                     # Variables que MySQL usa al boot
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD_FILE: ${MYSQL_ROOT_PASSWORD_FILE}
+      MYSQL_PASSWORD_FILE: ${MYSQL_PASSWORD_FILE}
+      BACKUP_USER: ${BACKUP_USER}
+      BACKUP_PASSWORD_FILE: ${BACKUP_PASSWORD_FILE}
     ports:
-      - "3306:3306"                  # Exponer puerto para tools externas (phpMyAdmin, etc.)
+      - "3306:3306"
     volumes:
-      - db_data:/var/lib/mysql       # Volumen persistente para datos
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro  # Script de init
-    healthcheck:                     # Esperar a que MySQL esté listo antes de levantar la API
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./database/init_backup_user.sh:/docker-entrypoint-initdb.d/init_backup_user.sh:ro
+    secrets:
+      - mysql_root_password
+      - mysql_app_password
+      - mysql_backup_password
+    healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -p${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s
       timeout: 5s
@@ -25,12 +32,12 @@ services:
   # --- Servicio de API (FastAPI) ---
   api:
     build:
-      context: ./backend             # Dockerfile de Python/FastAPI
+      context: ./backend
     container_name: cc_api
     depends_on:
       db:
-        condition: service_healthy   # Arranca cuando la DB esté saludable
-    environment:                     # Variables que la API usará para conectarse a MySQL
+        condition: service_healthy
+    environment:
       APP_ENV: ${APP_ENV}
       APP_PORT: ${APP_PORT}
       DB_HOST: db
@@ -38,22 +45,64 @@ services:
       DB_NAME: ${MYSQL_DATABASE}
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_PASSWORD_FILE: ${MYSQL_PASSWORD_FILE}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      BACKUP_DIR: ${BACKUP_DIR}
+      BACKUP_ACTOR: ${BACKUP_ACTOR}
     ports:
-      - "8000:8000"                  # Exponer API al host
-    restart: unless-stopped          # Reinicia si se cae
+      - "8000:8000"
+    volumes:
+      - backup_data:${BACKUP_DIR}
+    restart: unless-stopped
+    secrets:
+      - mysql_app_password
+      - jwt_secret
 
-  # --- Servicio Frontend (placeholder con NGINX) ---
+  # --- Servicio Frontend (NGINX) ---
   web:
     build:
-      context: ./frontend            # Dockerfile NGINX que sirve index.html
+      context: ./frontend
     container_name: cc_frontend
     depends_on:
       api:
         condition: service_started
     ports:
-      - "8080:80"                    # Verás el “frontend” en http://localhost:8080
+      - "8080:443"
     restart: unless-stopped
 
+  # --- Servicio de Backups automáticos ---
+  backup:
+    build:
+      context: ./backup
+      dockerfile: cronjob.Dockerfile
+    container_name: cc_backup
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: db                # nombre del servicio de la DB
+      MYSQL_USER: ${BACKUP_USER}
+      MYSQL_PASSWORD: ${BACKUP_PASSWORD}
+      MYSQL_PASSWORD_FILE: ${BACKUP_PASSWORD_FILE}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      BACKUP_DIR: ${BACKUP_DIR}
+      BACKUP_ACTOR: ${BACKUP_ACTOR}
+    volumes:
+      - backup_data:/backups        # aquí se guardan los .sql
+    restart: unless-stopped
+    secrets:
+      - mysql_backup_password
+
 volumes:
-  db_data:                           # Volumen nombrado para la DB
+  db_data:
+  backup_data:
+
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql_root_password.txt
+  mysql_app_password:
+    file: ./secrets/mysql_app_password.txt
+  mysql_backup_password:
+    file: ./secrets/mysql_backup_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
